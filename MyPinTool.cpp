@@ -1,0 +1,163 @@
+
+/*! @file
+ *  This is an example of the PIN tool that demonstrates some basic PIN APIs 
+ *  and could serve as the starting point for developing your first PIN tool
+ */
+
+#include "pin.H"
+#include <iostream>
+#include <fstream>
+#include <stdio.h>
+using std::cerr;
+using std::string;
+using std::endl;
+
+/* ================================================================== */
+// Global variables 
+/* ================================================================== */
+
+UINT64 insCount = 0;        //number of dynamically executed instructions
+FILE * trace;
+
+std::ostream * out = &cerr;
+
+/* ===================================================================== */
+// Command line switches
+/* ===================================================================== */
+KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE,  "pintool",
+    "o", "", "specify file name for MyPinTool output");
+
+KNOB<BOOL>   KnobCount(KNOB_MODE_WRITEONCE,  "pintool",
+    "count", "1", "count instructions, basic blocks and threads in the application");
+
+
+/* ===================================================================== */
+// Utilities
+/* ===================================================================== */
+
+/*!
+ *  Print out help message.
+ */
+INT32 Usage()
+{
+    cerr << "This tool prints out the number of dynamically executed " << endl <<
+            "instructions, basic blocks and threads in the application." << endl << endl;
+
+    cerr << KNOB_BASE::StringKnobSummary() << endl;
+
+    return -1;
+}
+
+/* ===================================================================== */
+// Analysis routines
+/* ===================================================================== */
+
+/*!
+ * Increase counter of the executed basic blocks and instructions.
+ * This function is called for every basic block when it is about to be executed.
+ * @param[in]   numInstInBbl    number of instructions in the basic block
+ * @note use atomic operations for multi-threaded applications
+ */
+VOID  doCount(){
+	
+	insCount++;
+}
+ 
+ void printDissasemble(VOID *Dissasemble){
+	 
+		std:string *stringDissasemble{ static_cast<string*>(Dissasemble)};
+		fprintf(trace, "%s\n", (*stringDissasemble).c_str());
+ }
+ 
+/* ===================================================================== */
+// Instrumentation callbacks
+/* ===================================================================== */
+
+/*!
+ * Insert Calls to functions for:
+ *	-Opcode (Hex)
+ *	-Reg Written
+ *	-Reg Read
+ *	-Mem Written
+ *	-Mem Read
+ */
+VOID Test(INS ins, VOID *v)
+{
+   INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)docount, IARG_END);
+   INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)printDissasemble, IARG_PRT, &(INS_Disassemble(ins)), IARG_END);
+}
+
+/*!
+ * Increase counter of threads in the application.
+ * This function is called for every thread created by the application when it is
+ * about to start running (including the root thread).
+ * @param[in]   threadIndex     ID assigned by PIN to the new thread
+ * @param[in]   ctxt            initial register state for the new thread
+ * @param[in]   flags           thread creation flags (OS specific)
+ * @param[in]   v               value specified by the tool in the 
+ *                              PIN_AddThreadStartFunction function call
+ */
+VOID ThreadStart(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID *v)
+{
+    threadCount++;
+}
+
+/*!
+ * Print out analysis results.
+ * This function is called when the application exits.
+ * @param[in]   code            exit code of the application
+ * @param[in]   v               value specified by the tool in the 
+ *                              PIN_AddFiniFunction function call
+ */
+VOID Fini(INT32 code, VOID *v)
+{
+     fprintf(trace, "#eof\n");
+     fclose(trace);
+}
+
+/*!
+ * The main procedure of the tool.
+ * This function is called when the application image is loaded but not yet started.
+ * @param[in]   argc            total number of elements in the argv array
+ * @param[in]   argv            array of command line arguments, 
+ *                              including pin -t <toolname> -- ...
+ */
+int main(int argc, char *argv[])
+{
+    // Initialize PIN library. Print help message if -h(elp) is specified
+    // in the command line or the command line is invalid 
+    if( PIN_Init(argc,argv) )
+    {
+        return Usage();
+    }
+    trace = fopen("itrace.out", "w");
+    string fileName = KnobOutputFile.Value();
+
+    if (!fileName.empty()) { out = new std::ofstream(fileName.c_str());}
+
+    if (KnobCount)
+    {
+        // Register function to be called to instrument traces
+        INS_AddInstrumentFunction(Test, 0);
+
+        // Register function to be called when the application exits
+        PIN_AddFiniFunction(Fini, 0);
+    }
+    
+    cerr <<  "===============================================" << endl;
+    cerr <<  "This application is instrumented by MyPinTool" << endl;
+    if (!KnobOutputFile.Value().empty()) 
+    {
+        cerr << "See file " << KnobOutputFile.Value() << " for analysis results" << endl;
+    }
+    cerr <<  "===============================================" << endl;
+
+    // Start the program, never returns
+    PIN_StartProgram();
+    
+    return 0;
+}
+
+/* ===================================================================== */
+/* eof */
+/* ===================================================================== */
