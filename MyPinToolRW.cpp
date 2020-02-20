@@ -198,7 +198,7 @@ VOID Reg0Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "%u %p %u %u 0 ", ex, ip, instrSize, index);
+        fprintf(outputFile, "%u %p %u %x 0 ", ex, ip, instrSize, index);
         
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
@@ -235,7 +235,7 @@ VOID Reg1Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "%u %p %u %u 1 %u ", ex, ip, instrSize, index, reg1num);
+        fprintf(outputFile, "%u %p %u %x 1 %u ", ex, ip, instrSize, index, reg1num);
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -276,7 +276,7 @@ VOID Reg2Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "%u %p %u %u 2 %u %u ", ex, ip, instrSize, index, reg1num, reg2num);
+        fprintf(outputFile, "%u %p %u %x 2 %u %u ", ex, ip, instrSize, index, reg1num, reg2num);
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -321,7 +321,7 @@ VOID Reg3Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "%u %p %u %u 3 %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num);
+        fprintf(outputFile, "%u %p %u %x 3 %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num);
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -369,7 +369,7 @@ VOID Reg4Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "%u %p %u %u 4 %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num);
+        fprintf(outputFile, "%u %p %u %x 4 %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num);
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -422,7 +422,7 @@ VOID Reg5Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "%u %p %u %u 5 %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num);
+        fprintf(outputFile, "%u %p %u %x 5 %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num);
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -479,7 +479,7 @@ VOID Reg6Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "%u %p %u %u 6 %u %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
+        fprintf(outputFile, "%u %p %u %x 6 %u %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
