@@ -548,7 +548,7 @@ VOID Mem1RPrint(ADDRINT memRAddr, UINT32 memRSize)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "1 %lu %u 0 ", memRAddr, memRSize);
+        fprintf(outputFile, "1 %lx %u 0 ", memRAddr, memRSize);
         //1 memory location read, write a 1 and advance 1 byte
         //*current_spot_in_buildBuff = 1;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -576,7 +576,7 @@ VOID Mem1WPrint(ADDRINT memWAddr, UINT32 memWSize)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "0 1 %lu %u ", memWAddr, memWSize);
+        fprintf(outputFile, "0 1 %lx %u ", memWAddr, memWSize);
         //No memory read, write a 0 and advance 1 byte
         //*current_spot_in_buildBuff = 0;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -606,7 +606,7 @@ VOID Mem2RRPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2RAddr, UINT32 
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %lu %u %lu %u 0 ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize);
+        fprintf(outputFile, "2 %lx %u %lx %u 0 ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize);
         //2 memory reads, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -644,7 +644,7 @@ VOID Mem2RWPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2WAddr, UINT32 
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "1 %lu %u 1 %lu %u ", mem1RAddr, mem1RSize, mem2WAddr, mem2WSize);
+        fprintf(outputFile, "1 %lx %u 1 %lx %u ", mem1RAddr, mem1RSize, mem2WAddr, mem2WSize);
         //1 memory read, write a 1 and advance 1 byte
         //*current_spot_in_buildBuff = 1;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -682,7 +682,7 @@ VOID Mem2WRPrint(ADDRINT mem1WAddr, UINT32 mem1WSize, ADDRINT mem2RAddr, UINT32 
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "1 %lu %u 1 %lu %u ", mem2RAddr, mem2RSize, mem1WAddr, mem1WSize);
+        fprintf(outputFile, "1 %lx %u 1 %lx %u ", mem2RAddr, mem2RSize, mem1WAddr, mem1WSize);
         //1 memory read, write a 1 and advance 1 byte
         //*current_spot_in_buildBuff = 1;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -722,7 +722,7 @@ VOID Mem3RRWPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2RAddr, UINT32
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %lu %u %lu %u 1 %lu %u ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize, mem3WAddr, mem3WSize);
+        fprintf(outputFile, "2 %lx %u %lx %u 1 %lx %u ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize, mem3WAddr, mem3WSize);
         //2 memory reads, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -770,7 +770,7 @@ VOID Mem3RWRPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2WAddr, UINT32
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %lu %u %lu %u 1 %lu %u ", mem1RAddr, mem1RSize, mem3RAddr, mem3RSize, mem2WAddr, mem2WSize);
+        fprintf(outputFile, "2 %lx %u %lx %u 1 %lx %u ", mem1RAddr, mem1RSize, mem3RAddr, mem3RSize, mem2WAddr, mem2WSize);
         //2 memory reads, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -818,7 +818,7 @@ VOID Mem3WRRPrint(ADDRINT mem1WAddr, UINT32 mem1WSize, ADDRINT mem2RAddr, UINT32
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %lu %u %lu %u 1 %lu %u ", mem2RAddr, mem2RSize, mem3RAddr, mem3RSize, mem3RAddr, mem3RSize);
+        fprintf(outputFile, "2 %lx %u %lx %u 1 %lx %u ", mem2RAddr, mem2RSize, mem3RAddr, mem3RSize, mem3RAddr, mem3RSize);
         //2 memory reads, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
