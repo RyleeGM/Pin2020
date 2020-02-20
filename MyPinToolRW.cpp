@@ -1166,6 +1166,9 @@ VOID Fini(INT32 code, VOID *v)
     //Clean up the compression stream
     //(void)deflateEnd(&strm);
 
+    //Print out number of instructions
+    cerr << instrCounter << " instructions";
+    
     //Close the output file
     fclose(outputFile);
 
