@@ -8,6 +8,11 @@
 #include "time.h"
 #include "pin.H"
 
+using std::string;
+using std::cerr;
+using std::endl;
+using std::cout;
+
 //Determine OS to use proper binary mode
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>
@@ -128,7 +133,7 @@ int CompressAndExport(bool lastTime)
         assert(strm.avail_in == 0);     /* all input will be used */
 
 	//Reset the compression buffer & copy overflow to beginning
-	for(int i = 0, j = 0; i < sizeOfCompressionBuff; ++i)
+	for(uint i = 0, j = 0; i < sizeOfCompressionBuff; ++i)
 	{
 		if(i < CHUNK)
 		{
@@ -145,6 +150,8 @@ int CompressAndExport(bool lastTime)
 	sizeOfCompressionBuff = newCompSize;
 
 	current_spot_in_compressionBuff = (compressionBuff + sizeOfCompressionBuff);
+
+	return 0;
 }
 
 /**
