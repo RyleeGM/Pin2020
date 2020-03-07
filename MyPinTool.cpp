@@ -28,28 +28,33 @@ using std::cout;
 /* ================================================================== */
 // Global variables
 /* ================================================================== */
-FILE * outputFile;                        //The external file which contains the header and compressed trace information
+FILE * outputFile;                      //The external file which contains the header and compressed trace information
 FILE * instructionFile;					//File of disassembled instructions
+FILE * regFile;							//File to dump the registers.
 UINT64 numInstr = 0;                    //The number of instructions to include in the output file
-UINT64 skipPt = 0;                        //The number of initial instructions to exclude from the output file
+UINT64 skipPt = 0;                      //The number of initial instructions to exclude from the output file
 UINT64 instrCounter = 0;                //The counter used for the total number of instructions traced so far
-int compLevel = 0;                        //The int used to tell zLib how much to compress
-string rawTraceString;                    //The string which holds traces before they are compressed
-string compressedTraceString;            //The string which holds compressed traces before they are written to the file
+int compLevel = 0;                      //The int used to tell zLib how much to compress
+string rawTraceString;                  //The string which holds traces before they are compressed
+string compressedTraceString;           //The string which holds compressed traces before they are written to the file
 void * rawTraceBuff;                    //The BYTE array which is compressed by zLib
-void * compressedTraceBuff;                //The compressed BYTE array returned by zLib
-char * buildBuff;                        //The char buffer used to store traces prior to compression
-char * current_spot_in_buildBuff;        //The pointer used in building a trace in the buildBuffer
-char * compressionBuff;                    //The char buffer used to store multiple traces before compression
-char * current_spot_in_compressionBuff;    //The pointer used to keep track of where to insert new instructions
+void * compressedTraceBuff;             //The compressed BYTE array returned by zLib
+char * buildBuff;                       //The char buffer used to store traces prior to compression
+char * current_spot_in_buildBuff;       //The pointer used in building a trace in the buildBuffer
+char * compressionBuff;                 //The char buffer used to store multiple traces before compression
+char * current_spot_in_compressionBuff; //The pointer used to keep track of where to insert new instructions
 char * compressedTraces;                //The char buffer used to hold the compressed traces
-UINT32 sizeOfCompressionBuff;            //The integer variable used to keep track of how full the compression buffer is
-bool opcodePrint;			//Rather or not to print the opcodes as strings.
-bool disassemblePrint;			//Rather or not to print the disassembled instructions.
+UINT32 sizeOfCompressionBuff;           //The integer variable used to keep track of how full the compression buffer is
+bool opcodePrint;						//Rather or not to print the opcodes as strings.
+bool disassemblePrint;					//Rather or not to print the disassembled instructions.
+bool regPrint;							//Rather or not to print the regs as numbers or as strings.
 //z_stream strm;                        //The stream initialized at the beginning of the program for compression
 int ret;                                //The return value modified by the compression method
 
-const UINT32 MAX_INDEX = 4096;    // enough even for the IA-64 architecture
+const UINT32 MAX_INDEX = 4096;    		// enough even for the IA-64 architecture
+ 
+string regRString[200];
+string regWString[200];
 
 /* ===================================================================== */
 // Command line switches
@@ -64,6 +69,7 @@ KNOB<int> KnobCompressionLevel(KNOB_MODE_WRITEONCE, "pintool",        //The knob
     "cmp", "9", "Specify the level of compression (0-9) that is desired");
 KNOB<bool> KnobOpcodePrint(KNOB_MODE_WRITEONCE, "pintool", "opcode", "true", 
     "If true prints opcode as a string instead of hex");
+KNOB<bool> KnobRegPrint(KNOB_MODE_WRITEONCE, "pintool", "reg", "false", "If true print regs as a string instead of a int");
 KNOB<bool> KnobDisassemble(KNOB_MODE_WRITEONCE, "pintool", "disassemble", "false", "If true, prints disassembled instructions instructions.out");
 
 /* ===================================================================== */
@@ -244,10 +250,20 @@ VOID Reg1Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        if(opcodePrint)
-            fprintf(outputFile, "%u %p %u %s 1 %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num);
-        else
-            fprintf(outputFile, "%u %p %u %x 1 %u ", ex, ip, instrSize, index, reg1num);
+        if(opcodePrint){
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %s 1 %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str());
+			} else {
+            	fprintf(outputFile, "%u %p %u %s 1 %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num);
+			}
+		}
+        else {
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %x 1 %s ", ex, ip, instrSize, index, regRString[reg1num].c_str());
+			} else {
+        		fprintf(outputFile, "%u %p %u %x 1 %u ", ex, ip, instrSize, index, reg1num);
+			}
+		}
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -288,10 +304,19 @@ VOID Reg2Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        if(opcodePrint)
-            fprintf(outputFile, "%u %p %u %s 2 %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num);
-        else
-            fprintf(outputFile, "%u %p %u %x 2 %u %u ", ex, ip, instrSize, index, reg1num, reg2num);
+        if(opcodePrint){
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %s 2 %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str());	
+			} else {
+          		fprintf(outputFile, "%u %p %u %s 2 %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num);
+			}
+		} else {
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %x 2 %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str());
+			} else {
+            	fprintf(outputFile, "%u %p %u %x 2 %u %u ", ex, ip, instrSize, index, reg1num, reg2num);
+			}
+		}
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -336,10 +361,19 @@ VOID Reg3Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        if(opcodePrint)
-            fprintf(outputFile, "%u %p %u %s 3 %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num);
-        else
-            fprintf(outputFile, "%u %p %u %x 3 %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num);
+        if(opcodePrint){
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %s 3 %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str());
+			} else {
+            	fprintf(outputFile, "%u %p %u %s 3 %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num);
+			}
+		} else {
+			if(regPrint) {
+				fprintf(outputFile, "%u %p %u %x 3 %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str());
+			} else {
+           		fprintf(outputFile, "%u %p %u %x 3 %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num);
+			}
+		}
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -388,9 +422,18 @@ VOID Reg4Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {   
         if(opcodePrint)
-            fprintf(outputFile, "%u %p %u %s 4 %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num);
-        else
-            fprintf(outputFile, "%u %p %u %x 4 %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num);
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %s 4 %s %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str());
+			} else {
+            	fprintf(outputFile, "%u %p %u %s 4 %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num);
+			}
+        else{
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %x 4 %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str());
+			} else {
+            	fprintf(outputFile, "%u %p %u %x 4 %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num);
+			}
+		}
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -443,10 +486,19 @@ VOID Reg5Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        if(opcodePrint)
-            fprintf(outputFile, "%u %p %u %s 5 %u %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num, reg5num);
-        else
-            fprintf(outputFile, "%u %p %u %x 5 %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num);
+        if(opcodePrint){
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %s 5 %s %s %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str());
+			} else {
+	            fprintf(outputFile, "%u %p %u %s 5 %u %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num, reg5num);
+			}
+        } else {
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %x 5 %s %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str());
+			} else {
+            	fprintf(outputFile, "%u %p %u %x 5 %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num);
+			}
+		}
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -503,10 +555,19 @@ VOID Reg6Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        if(opcodePrint)
-            fprintf(outputFile, "%u %p %u %s 6 %u %u %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
-        else
+        if(opcodePrint){
+			if(regPrint){
+				fprintf(outputFile, "%u %p %u %s 6 %s %s %s %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str(), regRString[reg6num].c_str());
+			} else {
+            	fprintf(outputFile, "%u %p %u %s 6 %u %u %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
+			}
+        }else{
+			if(regPrint){
+			fprintf(outputFile, "%u %p %u %x 6 %s %s %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str(), regRString[reg6num].c_str());
+			} else {
             fprintf(outputFile, "%u %p %u %x 6 %u %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
+			}
+		}
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
@@ -904,8 +965,12 @@ Function used when there is 1 register written
 VOID Reg1W (UINT32 reg1Num)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "1 %u\n", reg1Num);
+    {	
+		if(regPrint){
+			fprintf(outputFile, "1 %s\n", regWString[reg1Num].c_str());
+		} else {
+        	fprintf(outputFile, "1 %u\n", reg1Num);
+		}
         //1 register write, write a 1 and advance 1 byte
         //*current_spot_in_buildBuff = 1;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -928,7 +993,11 @@ VOID Reg2W(UINT32 reg1Num, UINT32 reg2Num)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %u %u \n", reg1Num, reg2Num);
+		if(regPrint){
+			fprintf(outputFile, "2 %s %s \n", regWString[reg1Num].c_str(), regWString[reg2Num].c_str());
+		} else {
+			fprintf(outputFile, "2 %u %u \n", reg1Num, reg2Num);
+		}
         //2 register writes, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -956,7 +1025,11 @@ VOID Reg3W(UINT32 reg1Num, UINT32 reg2Num, UINT32 reg3Num)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "3 %u %u %u \n", reg1Num, reg2Num, reg3Num);
+		if(regPrint){
+			fprintf(outputFile, "3 %s %s %s \n", regWString[reg1Num].c_str(), regWString[reg2Num].c_str(), regWString[reg3Num].c_str());
+		} else {
+        	fprintf(outputFile, "3 %u %u %u \n", reg1Num, reg2Num, reg3Num);
+		}
         //3 register writes, write a 3 and advance 1 byte
         //*current_spot_in_buildBuff = 3;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -989,7 +1062,11 @@ VOID Reg4W(UINT32 reg1Num, UINT32 reg2Num, UINT32 reg3Num, UINT32 reg4Num)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "4 %u %u %u %u \n", reg1Num, reg2Num, reg3Num, reg4Num);
+		if(regPrint){
+			fprintf(outputFile, "4 %s %s %s %s \n", regWString[reg1Num].c_str(), regWString[reg2Num].c_str(), regWString[reg3Num].c_str(), regWString[reg4Num].c_str());
+		} else {
+        	fprintf(outputFile, "4 %u %u %u %u \n", reg1Num, reg2Num, reg3Num, reg4Num);
+		}
         //4 register writes, write a 4 and advance 1 byte
         //*current_spot_in_buildBuff = 4;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -1029,7 +1106,6 @@ VOID Test(INS ins, VOID *v)
 	if(disassemblePrint){
 		fprintf(instructionFile, "%lx ", INS_Address(ins));
 		fprintf(instructionFile, "%s\n", INS_Disassemble(ins).c_str());
-
 	}
 
     //Make the call to increment the instruction counter
@@ -1052,31 +1128,41 @@ VOID Test(INS ins, VOID *v)
     {
         //1 register read
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg1Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_END);
+		//Get the string string instead of numbers
+		if(regPrint){
+			//Store just the string.
+			regRString[(UINT32)INS_RegR(ins, 0)] = REG_StringShort(INS_RegR(ins, 0));
+		}
     }
     else if(maxR == 2)
     {
         //2 registers read
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg2Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_END);
+
     }
     else if(maxR == 3)
     {
         //3 registers read
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg3Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_UINT32, INS_RegR(ins, 2), IARG_END);
+
     }
     else if(maxR == 4)
     {
         //4 registers read
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg4Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_UINT32, INS_RegR(ins, 2), IARG_UINT32, INS_RegR(ins, 3), IARG_END);
+	
     }
     else if(maxR == 5)
     {
         //5 registers read
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg5Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_UINT32, INS_RegR(ins, 2), IARG_UINT32, INS_RegR(ins, 3), IARG_UINT32, INS_RegR(ins, 4), IARG_END);
+
     }
     else
     {
         //6 registers read
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg6Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_UINT32, INS_RegR(ins, 2), IARG_UINT32, INS_RegR(ins, 3), IARG_UINT32, INS_RegR(ins, 4), IARG_UINT32, INS_RegR(ins,5), IARG_END);
+		
     }
 
     //Determine the number of memory operands
@@ -1164,6 +1250,7 @@ VOID Test(INS ins, VOID *v)
     {
         //1 register write
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg1W, IARG_UINT32, INS_RegW(ins, 0), IARG_END);
+
     }
     else if(maxW == 2)
     {
@@ -1180,6 +1267,20 @@ VOID Test(INS ins, VOID *v)
         //4 register writes
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg4W, IARG_UINT32, INS_RegW(ins, 0), IARG_UINT32, INS_RegW(ins, 1), IARG_UINT32, INS_RegW(ins, 2), IARG_UINT32, INS_RegW(ins, 3), IARG_END);
     }
+
+	if(regPrint){
+		//Iterate over the read registers.
+		for(int i = 0; i < maxR; i++){
+			regRString[(UINT32)INS_RegR(ins, i)] = REG_StringShort(INS_RegR(ins, i));
+			fprintf(regFile, "%i, %s\n", (UINT32)INS_RegR(ins, i), regRString[(UINT32)INS_RegR(ins, i)].c_str());
+		}
+		for(int i = 0; i < maxW; i++){
+			regWString[(UINT32)INS_RegW(ins, i)] = REG_StringShort(INS_RegW(ins, i));
+			fprintf(regFile, "%i, %s\n", (UINT32)INS_RegW(ins, i), regWString[(UINT32)INS_RegW(ins, i)].c_str());
+		}
+		
+	}
+		
 }
 
 /*!
@@ -1232,6 +1333,7 @@ int main(int argc, char *argv[])
     compLevel = KnobCompressionLevel;
     opcodePrint = KnobOpcodePrint;
 	disassemblePrint = KnobDisassemble;
+	regPrint = KnobRegPrint;
 
     // Register the function to be called to instrument traces
     INS_AddInstrumentFunction(Test, 0);
@@ -1242,6 +1344,41 @@ int main(int argc, char *argv[])
 	//========Ouput Disassembled Instructions==========
 	if (disassemblePrint){
 		instructionFile = fopen("instructions.out", "w");
+		fprintf(regFile, "===============================================\n");
+		//Print out the date and time of the trace generation
+    	time_t rawtime;
+    	struct tm * timeinfo;
+
+    	time (&rawtime);
+   		timeinfo = localtime (&rawtime);
+
+   		char header2[100];
+   		strcpy(header2, "Instructions generated on: ");
+    	strcat(header2, asctime(timeinfo));
+    	fwrite(header2, 1, strlen(header2), regFile);
+
+		int i;
+    	for (i = 0; i < argc; ++i)
+    	{
+      		if (!strcmp(argv[i], "--"))
+       	 	{
+          		break;
+       	 	}
+   		}		
+
+		++i;
+		char header4[100];
+		strcpy(header4,"Program name: ");
+		strcat(header4, argv[i]);
+		strcat(header4, "\n");
+		fwrite(header4,1,strlen(header4),regFile);
+		++i;
+		fprintf(regFile, "===============================================\n");
+	}
+
+	//==============Ouput Register Strings====================
+	if (regPrint){
+		regFile = fopen("registers.out", "w");
 		fprintf(instructionFile, "===============================================\n");
 		//Print out the date and time of the trace generation
     	time_t rawtime;
@@ -1254,7 +1391,6 @@ int main(int argc, char *argv[])
    		strcpy(header2, "Instructions generated on: ");
     	strcat(header2, asctime(timeinfo));
     	fwrite(header2, 1, strlen(header2), instructionFile);
-		fprintf(instructionFile, "===============================================\n");
 
 		int i;
     	for (i = 0; i < argc; ++i)
