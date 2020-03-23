@@ -213,7 +213,7 @@ VOID Reg0Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize)
         if(opcodePrint)
             fprintf(outputFile, "%u %p %u %s 0 ", ex, ip, instrSize, OPCODE_StringShort(index).c_str());
         else
-            fprintf(outputFile, "%u %p %u %x 0 ", ex, ip, instrSize, index);
+            fprintf(outputFile, "%u %p %u 0x%x 0 ", ex, ip, instrSize, index);
         
         //Write execution bit and advance 1 byte in buffer
         //*((bool *)current_spot_in_buildBuff) = ex;
@@ -259,9 +259,9 @@ VOID Reg1Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 		}
         else {
 			if(regPrint){
-				fprintf(outputFile, "%u %p %u %x 1 %s ", ex, ip, instrSize, index, regRString[reg1num].c_str());
+				fprintf(outputFile, "%u %p %u 0x%x 1 %s ", ex, ip, instrSize, index, regRString[reg1num].c_str());
 			} else {
-        		fprintf(outputFile, "%u %p %u %x 1 %u ", ex, ip, instrSize, index, reg1num);
+        		fprintf(outputFile, "%u %p %u 0x%x 1 %u ", ex, ip, instrSize, index, reg1num);
 			}
 		}
         //Write execution bit and advance 1 byte in buffer
@@ -312,9 +312,9 @@ VOID Reg2Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 			}
 		} else {
 			if(regPrint){
-				fprintf(outputFile, "%u %p %u %x 2 %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str());
+				fprintf(outputFile, "%u %p %u 0x%x 2 %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str());
 			} else {
-            	fprintf(outputFile, "%u %p %u %x 2 %u %u ", ex, ip, instrSize, index, reg1num, reg2num);
+            	fprintf(outputFile, "%u %p %u 0x%x 2 %u %u ", ex, ip, instrSize, index, reg1num, reg2num);
 			}
 		}
         //Write execution bit and advance 1 byte in buffer
@@ -369,9 +369,9 @@ VOID Reg3Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 			}
 		} else {
 			if(regPrint) {
-				fprintf(outputFile, "%u %p %u %x 3 %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str());
+				fprintf(outputFile, "%u %p %u 0x%x 3 %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str());
 			} else {
-           		fprintf(outputFile, "%u %p %u %x 3 %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num);
+           		fprintf(outputFile, "%u %p %u 0x%x 3 %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num);
 			}
 		}
         //Write execution bit and advance 1 byte in buffer
@@ -429,9 +429,9 @@ VOID Reg4Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 			}
         else{
 			if(regPrint){
-				fprintf(outputFile, "%u %p %u %x 4 %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str());
+				fprintf(outputFile, "%u %p %u 0x%x 4 %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str());
 			} else {
-            	fprintf(outputFile, "%u %p %u %x 4 %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num);
+            	fprintf(outputFile, "%u %p %u 0x%x 4 %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num);
 			}
 		}
         //Write execution bit and advance 1 byte in buffer
@@ -494,9 +494,9 @@ VOID Reg5Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 			}
         } else {
 			if(regPrint){
-				fprintf(outputFile, "%u %p %u %x 5 %s %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str());
+				fprintf(outputFile, "%u %p %u 0x%x 5 %s %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str());
 			} else {
-            	fprintf(outputFile, "%u %p %u %x 5 %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num);
+            	fprintf(outputFile, "%u %p %u 0x%x 5 %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num);
 			}
 		}
         //Write execution bit and advance 1 byte in buffer
@@ -563,9 +563,9 @@ VOID Reg6Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
 			}
         }else{
 			if(regPrint){
-			fprintf(outputFile, "%u %p %u %x 6 %s %s %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str(), regRString[reg6num].c_str());
+			fprintf(outputFile, "%u %p %u 0x%x 6 %s %s %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str(), regRString[reg6num].c_str());
 			} else {
-            fprintf(outputFile, "%u %p %u %x 6 %u %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
+            fprintf(outputFile, "%u %p %u 0x%x 6 %u %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
 			}
 		}
         //Write execution bit and advance 1 byte in buffer
@@ -636,7 +636,7 @@ VOID Mem1RPrint(ADDRINT memRAddr, UINT32 memRSize)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "1 %lx %u 0 ", memRAddr, memRSize);
+        fprintf(outputFile, "1 0x%lx %u 0 ", memRAddr, memRSize);
         //1 memory location read, write a 1 and advance 1 byte
         //*current_spot_in_buildBuff = 1;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -664,7 +664,7 @@ VOID Mem1WPrint(ADDRINT memWAddr, UINT32 memWSize)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "0 1 %lx %u ", memWAddr, memWSize);
+        fprintf(outputFile, "0 1 0x%lx %u ", memWAddr, memWSize);
         //No memory read, write a 0 and advance 1 byte
         //*current_spot_in_buildBuff = 0;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -694,7 +694,7 @@ VOID Mem2RRPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2RAddr, UINT32 
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %lx %u %lx %u 0 ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize);
+        fprintf(outputFile, "2 0x%lx %u 0x%lx %u 0 ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize);
         //2 memory reads, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -732,7 +732,7 @@ VOID Mem2RWPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2WAddr, UINT32 
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "1 %lx %u 1 %lx %u ", mem1RAddr, mem1RSize, mem2WAddr, mem2WSize);
+        fprintf(outputFile, "1 0x%lx %u 1 0x%lx %u ", mem1RAddr, mem1RSize, mem2WAddr, mem2WSize);
         //1 memory read, write a 1 and advance 1 byte
         //*current_spot_in_buildBuff = 1;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -770,7 +770,7 @@ VOID Mem2WRPrint(ADDRINT mem1WAddr, UINT32 mem1WSize, ADDRINT mem2RAddr, UINT32 
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "1 %lx %u 1 %lx %u ", mem2RAddr, mem2RSize, mem1WAddr, mem1WSize);
+        fprintf(outputFile, "1 0x%lx %u 1 0x%lx %u ", mem2RAddr, mem2RSize, mem1WAddr, mem1WSize);
         //1 memory read, write a 1 and advance 1 byte
         //*current_spot_in_buildBuff = 1;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -810,7 +810,7 @@ VOID Mem3RRWPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2RAddr, UINT32
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %lx %u %lx %u 1 %lx %u ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize, mem3WAddr, mem3WSize);
+        fprintf(outputFile, "2 0x%lx %u 0x%lx %u 1 0x%lx %u ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize, mem3WAddr, mem3WSize);
         //2 memory reads, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -858,7 +858,7 @@ VOID Mem3RWRPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2WAddr, UINT32
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %lx %u %lx %u 1 %lx %u ", mem1RAddr, mem1RSize, mem3RAddr, mem3RSize, mem2WAddr, mem2WSize);
+        fprintf(outputFile, "2 0x%lx %u 0x%lx %u 1 0x%lx %u ", mem1RAddr, mem1RSize, mem3RAddr, mem3RSize, mem2WAddr, mem2WSize);
         //2 memory reads, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -906,7 +906,7 @@ VOID Mem3WRRPrint(ADDRINT mem1WAddr, UINT32 mem1WSize, ADDRINT mem2RAddr, UINT32
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        fprintf(outputFile, "2 %lx %u %lx %u 1 %lx %u ", mem2RAddr, mem2RSize, mem3RAddr, mem3RSize, mem3RAddr, mem3RSize);
+        fprintf(outputFile, "2 0x%lx %u 0x%lx %u 1 0x%lx %u ", mem2RAddr, mem2RSize, mem3RAddr, mem3RSize, mem3RAddr, mem3RSize);
         //2 memory reads, write a 2 and advance 1 byte
         //*current_spot_in_buildBuff = 2;
         //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
@@ -1104,7 +1104,7 @@ VOID Test(INS ins, VOID *v)
     int maxMem;    //The variable to hold the number of memory operands
 
 	if(disassemblePrint){
-		fprintf(instructionFile, "%lx ", INS_Address(ins));
+		fprintf(instructionFile, "0x%lx ", INS_Address(ins));
 		fprintf(instructionFile, "%s\n", INS_Disassemble(ins).c_str());
 	}
 
@@ -1268,7 +1268,7 @@ VOID Test(INS ins, VOID *v)
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg4W, IARG_UINT32, INS_RegW(ins, 0), IARG_UINT32, INS_RegW(ins, 1), IARG_UINT32, INS_RegW(ins, 2), IARG_UINT32, INS_RegW(ins, 3), IARG_END);
     }
 
-	if(regPrint){
+/*	if(regPrint){
 		//Iterate over the read registers.
 		for(int i = 0; i < maxR; i++){
 			regRString[(UINT32)INS_RegR(ins, i)] = REG_StringShort(INS_RegR(ins, i));
@@ -1280,7 +1280,7 @@ VOID Test(INS ins, VOID *v)
 		}
 		
 	}
-		
+*/		
 }
 
 /*!
@@ -1344,6 +1344,41 @@ int main(int argc, char *argv[])
 	//========Ouput Disassembled Instructions==========
 	if (disassemblePrint){
 		instructionFile = fopen("instructions.out", "w");
+		fprintf(instructionFile, "===============================================\n");
+		//Print out the date and time of the trace generation
+    	time_t rawtime;
+    	struct tm * timeinfo;
+
+    	time (&rawtime);
+   	timeinfo = localtime (&rawtime);
+
+   	char header2[100];
+   	strcpy(header2, "Instructions generated on: ");
+    	strcat(header2, asctime(timeinfo));
+    	fwrite(header2, 1, strlen(header2), instructionFile);
+
+	int i;
+    	for (i = 0; i < argc; ++i)
+    	{
+      		if (!strcmp(argv[i], "--"))
+       	 	{
+          		break;
+       	 	}
+   		}		
+
+		++i;
+		char header4[100];
+		strcpy(header4,"Program name: ");
+		strcat(header4, argv[i]);
+		strcat(header4, "\n");
+		fwrite(header4,1,strlen(header4),instructionFile);
+		++i;
+		fprintf(instructionFile, "===============================================\n");
+	}
+
+	//==============Ouput Register Strings====================
+	if (regPrint){
+		regFile = fopen("registers.out", "w");
 		fprintf(regFile, "===============================================\n");
 		//Print out the date and time of the trace generation
     	time_t rawtime;
@@ -1374,41 +1409,6 @@ int main(int argc, char *argv[])
 		fwrite(header4,1,strlen(header4),regFile);
 		++i;
 		fprintf(regFile, "===============================================\n");
-	}
-
-	//==============Ouput Register Strings====================
-	if (regPrint){
-		regFile = fopen("registers.out", "w");
-		fprintf(instructionFile, "===============================================\n");
-		//Print out the date and time of the trace generation
-    	time_t rawtime;
-    	struct tm * timeinfo;
-
-    	time (&rawtime);
-   		timeinfo = localtime (&rawtime);
-
-   		char header2[100];
-   		strcpy(header2, "Instructions generated on: ");
-    	strcat(header2, asctime(timeinfo));
-    	fwrite(header2, 1, strlen(header2), instructionFile);
-
-		int i;
-    	for (i = 0; i < argc; ++i)
-    	{
-      		if (!strcmp(argv[i], "--"))
-       	 	{
-          		break;
-       	 	}
-   		}		
-
-		++i;
-		char header4[100];
-		strcpy(header4,"Program name: ");
-		strcat(header4, argv[i]);
-		strcat(header4, "\n");
-		fwrite(header4,1,strlen(header4),instructionFile);
-		++i;
-		fprintf(instructionFile, "===============================================\n");
 	}
 
     //================Output the header================
