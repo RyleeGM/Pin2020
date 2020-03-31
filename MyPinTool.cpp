@@ -556,8 +556,8 @@ VOID Reg6Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
         if(opcodePrint){
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u %s 6 %s %s %s %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str(), regRString[reg6num].c_str());
+		if(regPrint){
+			fprintf(outputFile, "%u %p %u %s 6 %s %s %s %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str(), regRString[reg6num].c_str());
 			} else {
             	fprintf(outputFile, "%u %p %u %s 6 %u %u %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
 			}
@@ -1268,7 +1268,7 @@ VOID Test(INS ins, VOID *v)
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg4W, IARG_UINT32, INS_RegW(ins, 0), IARG_UINT32, INS_RegW(ins, 1), IARG_UINT32, INS_RegW(ins, 2), IARG_UINT32, INS_RegW(ins, 3), IARG_END);
     }
 
-/*	if(regPrint){
+	if(regPrint){
 		//Iterate over the read registers.
 		for(int i = 0; i < maxR; i++){
 			regRString[(UINT32)INS_RegR(ins, i)] = REG_StringShort(INS_RegR(ins, i));
@@ -1280,7 +1280,7 @@ VOID Test(INS ins, VOID *v)
 		}
 		
 	}
-*/		
+		
 }
 
 /*!
@@ -1346,25 +1346,25 @@ int main(int argc, char *argv[])
 		instructionFile = fopen("instructions.out", "w");
 		fprintf(instructionFile, "===============================================\n");
 		//Print out the date and time of the trace generation
-    	time_t rawtime;
-    	struct tm * timeinfo;
+	    	time_t rawtime;
+	    	struct tm * timeinfo;
 
-    	time (&rawtime);
-   	timeinfo = localtime (&rawtime);
+	    	time (&rawtime);
+	   	timeinfo = localtime (&rawtime);
 
-   	char header2[100];
-   	strcpy(header2, "Instructions generated on: ");
-    	strcat(header2, asctime(timeinfo));
-    	fwrite(header2, 1, strlen(header2), instructionFile);
+	   	char header2[100];
+	   	strcpy(header2, "Instructions generated on: ");
+	    	strcat(header2, asctime(timeinfo));
+	    	fwrite(header2, 1, strlen(header2), instructionFile);
 
-	int i;
-    	for (i = 0; i < argc; ++i)
-    	{
-      		if (!strcmp(argv[i], "--"))
-       	 	{
-          		break;
-       	 	}
-   		}		
+		int i;
+	    	for (i = 0; i < argc; ++i)
+	    	{
+	      		if (!strcmp(argv[i], "--"))
+	       	 	{
+		  		break;
+	       	 	}
+	   	}		
 
 		++i;
 		char header4[100];
@@ -1373,7 +1373,7 @@ int main(int argc, char *argv[])
 		strcat(header4, "\n");
 		fwrite(header4,1,strlen(header4),instructionFile);
 		++i;
-		fprintf(instructionFile, "===============================================\n");
+		fprintf(instructionFile, "===============================================#\n");
 	}
 
 	//==============Ouput Register Strings====================
@@ -1408,7 +1408,7 @@ int main(int argc, char *argv[])
 		strcat(header4, "\n");
 		fwrite(header4,1,strlen(header4),regFile);
 		++i;
-		fprintf(regFile, "===============================================\n");
+		fprintf(regFile, "===============================================#\n");
 	}
 
     //================Output the header================
@@ -1500,7 +1500,7 @@ int main(int argc, char *argv[])
     strcat(header8, "\n");
     fwrite(header8,1,strlen(header8),outputFile);
 
-    char header9[] = "===============================================\n";
+    char header9[] = "===============================================#\n";
     fwrite(header9,1,strlen(header9),outputFile);
 
     //fflush(outputFile);
