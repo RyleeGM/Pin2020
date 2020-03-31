@@ -1373,7 +1373,7 @@ int main(int argc, char *argv[])
 		strcat(header4, "\n");
 		fwrite(header4,1,strlen(header4),instructionFile);
 		++i;
-		fprintf(instructionFile, "===============================================#\n");
+		fprintf(instructionFile, "===============================================\n");
 	}
 
 	//==============Ouput Register Strings====================
@@ -1408,7 +1408,7 @@ int main(int argc, char *argv[])
 		strcat(header4, "\n");
 		fwrite(header4,1,strlen(header4),regFile);
 		++i;
-		fprintf(regFile, "===============================================#\n");
+		fprintf(regFile, "===============================================\n");
 	}
 
     //================Output the header================
@@ -1500,7 +1500,7 @@ int main(int argc, char *argv[])
     strcat(header8, "\n");
     fwrite(header8,1,strlen(header8),outputFile);
 
-    char header9[] = "===============================================#\n";
+    char header9[] = "===============================================\n";
     fwrite(header9,1,strlen(header9),outputFile);
 
     //fflush(outputFile);
