@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <sstream>
-//#include "zlib.h"
 #include "time.h"
 #include "pin.H"
 
@@ -28,36 +27,22 @@ using std::cout;
 /* ================================================================== */
 // Global variables
 /* ================================================================== */
-FILE * outputFile;                      //The external file which contains the header and compressed trace information
-FILE * instructionFile;					//File of disassembled instructions
-FILE * regFile;							//File to dump the registers.
-UINT64 numInstr = 0;                    //The number of instructions to include in the output file
-UINT64 skipPt = 0;                      //The number of initial instructions to exclude from the output file
-UINT64 instrCounter = 0;                //The counter used for the total number of instructions traced so far
-int compLevel = 0;                      //The int used to tell zLib how much to compress
-string rawTraceString;                  //The string which holds traces before they are compressed
-string compressedTraceString;           //The string which holds compressed traces before they are written to the file
-void * rawTraceBuff;                    //The BYTE array which is compressed by zLib
-void * compressedTraceBuff;             //The compressed BYTE array returned by zLib
-char * buildBuff;                       //The char buffer used to store traces prior to compression
-char * current_spot_in_buildBuff;       //The pointer used in building a trace in the buildBuffer
-char * compressionBuff;                 //The char buffer used to store multiple traces before compression
-char * current_spot_in_compressionBuff; //The pointer used to keep track of where to insert new instructions
-char * compressedTraces;                //The char buffer used to hold the compressed traces
-UINT32 sizeOfCompressionBuff;           //The integer variable used to keep track of how full the compression buffer is
-bool opcodePrint;						//Rather or not to print the opcodes as strings.
-bool disassemblePrint;					//Rather or not to print the disassembled instructions.
-bool regPrint;							//Rather or not to print the regs as numbers or as strings.
-//z_stream strm;                        //The stream initialized at the beginning of the program for compression
-int ret;                                //The return value modified by the compression method
-
-const UINT32 MAX_INDEX = 4096;    		// enough even for the IA-64 architecture
+FILE * outputFile;                     //The external file which contains the header and compressed trace information
+FILE * instructionFile;                //File of disassembled instructions
+FILE * regFile;                        //File to dump the registers.
+UINT64 numInstr = 0;                   //The number of instructions to include in the output file
+UINT64 skipPt = 0;                     //The number of initial instructions to exclude from the output file
+UINT64 instrCounter = 0;               //The counter used for the total number of instructions traced so far
+bool opcodePrint;                      //Rather or not to print the opcodes as strings.
+bool disassemblePrint;                 //Rather or not to print the disassembled instructions.
+bool regPrint;                         //Rather or not to print the regs as numbers or as strings.
+int ret;                               //The return value modified by the compression method
  
 string regRString[200];
 string regWString[200];
 
 /* ===================================================================== */
-// Command line switches
+// MARK: - Command line switches
 /* ===================================================================== */
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE,  "pintool",        //Allows for specific naming of the output file
     "o", "Trace.out", "specify file name for MyPinTool output");
@@ -67,13 +52,13 @@ KNOB<UINT64> KnobInstrCount(KNOB_MODE_WRITEONCE, "pintool",            //The kno
     "num", "100000", "Specify the number of instructions to generate a trace for");
 KNOB<int> KnobCompressionLevel(KNOB_MODE_WRITEONCE, "pintool",        //The knob for setting the level of compression - defaults to max
     "cmp", "9", "Specify the level of compression (0-9) that is desired");
-KNOB<bool> KnobOpcodePrint(KNOB_MODE_WRITEONCE, "pintool", "opcode", "true", 
+KNOB<bool> KnobOpcodePrint(KNOB_MODE_WRITEONCE, "pintool", "opcode", "true",
     "If true prints opcode as a string instead of hex");
 KNOB<bool> KnobRegPrint(KNOB_MODE_WRITEONCE, "pintool", "reg", "false", "If true print regs as a string instead of a int");
 KNOB<bool> KnobDisassemble(KNOB_MODE_WRITEONCE, "pintool", "disassemble", "false", "If true, prints disassembled instructions instructions.out");
 
 /* ===================================================================== */
-// Utilities
+// MARK: - Utilities
 /* ===================================================================== */
 
 /*!
@@ -92,103 +77,8 @@ INT32 Usage()
 }
 
 /* ===================================================================== */
-// Instrumentation callbacks
+// MARK: - Instrumentation callbacks
 /* ===================================================================== */
-
-/**
-The method for compressing the traces and writing them to the external file
-@param lastTime The boolean that determines whether the call to this method is the final one
-*/
-//int CompressAndExport(bool lastTime)
-//{
-//    int newCompSize = 0;
-//
-//    //Compress the traces
-//    int flush;
-//    unsigned have;
-//
-//    unsigned char in[CHUNK];
-//    unsigned char out[CHUNK];
-//
-//    //Copy the contents of the compression buffer to the uchar array
-//    for(int i = 0; i < CHUNK; ++i)
-//    {
-//        in[i] = compressionBuff[i];
-//    }
-//
-//    /* compress until end of file */
-//        strm.avail_in = CHUNK;
-//
-//        if(!lastTime)
-//        {
-//            flush = Z_NO_FLUSH;
-//        }
-//        else
-//        {
-//            flush = Z_FINISH;
-//        }
-//        strm.next_in = in;
-//
-//        /* run deflate() on input until output buffer not full, finish
-//           compression if all of source has been read in */
-//        do {
-//            strm.avail_out = CHUNK;
-//            strm.next_out = out;
-//            ret = deflate(&strm, flush);    /* no bad return value */
-//            assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
-//            have = CHUNK - strm.avail_out;
-//            if (fwrite(out, 1, have, outputFile) != have || ferror(outputFile)) {
-//                (void)deflateEnd(&strm);
-//                return Z_ERRNO;
-//            }
-//        } while (strm.avail_out == 0);
-//        assert(strm.avail_in == 0);     /* all input will be used */
-//
-//    //Reset the compression buffer & copy overflow to beginning
-//    for(int i = 0, j = 0; i < sizeOfCompressionBuff; ++i)
-//    {
-//        if(i < CHUNK)
-//        {
-//            compressionBuff[i] = 0;
-//        }
-//        else
-//        {
-//            compressionBuff[j] = compressionBuff[i];
-//            compressionBuff[i] = 0;
-//            ++j;
-//            ++newCompSize;
-//        }
-//    }
-//    sizeOfCompressionBuff = newCompSize;
-//
-//    current_spot_in_compressionBuff = (compressionBuff + sizeOfCompressionBuff);
-//}
-//
-///**
-//This is called after each instruction trace. Copies the instruction build buffer to the compression buffer
-//*/
-//VOID CopyBuffer()
-//{
-//    //Copy the new instruction to the compression buffer
-//    for(char * buildBuffChar = buildBuff; buildBuffChar != current_spot_in_buildBuff; ++buildBuffChar, ++current_spot_in_compressionBuff)
-//    {
-//        *current_spot_in_compressionBuff = *buildBuffChar;
-//        ++sizeOfCompressionBuff;
-//    }
-//
-//    //Check to see if there is room in the compression Buffer for another instruction
-//    if(((CHUNK + MAXINSTRSIZE) - sizeOfCompressionBuff) < MAXINSTRSIZE)
-//    {
-//        //There isn't room, so call CompressAndExport
-//        CompressAndExport(false);
-//    }
-//
-//    //Reset the buildBuffer to handle the new instruction
-//    for(int i = 0; i < MAXINSTRSIZE; ++i)
-//        buildBuff[i] = 0;
-//
-//    current_spot_in_buildBuff = buildBuff;
-//}
 
 /**
 Called every instruction trace - used to keep track of how many have been skipped and generated
@@ -198,899 +88,105 @@ VOID IncrementCounter()
     instrCounter++;
 }
 
+/* ===================================================================== */
+// MARK: Info, Opcode, and Repeat
+/* ===================================================================== */
+
 /**
 Function used to print the execution bit, Instruction Address, Opcode Size, and Opcode.
-No registers written after that.
 @param ex            The boolean that signifies whether or not the instruction was actually executed
 @param *ip            The pointer the instruction's physical address space
 @param index        The opcode number
 @param instrSize    The opcode size (in bytes)
 */
-VOID Reg0Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize)
+VOID InfoPrint(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
         if(opcodePrint)
-            fprintf(outputFile, "%u %p %u %s 0 ", ex, ip, instrSize, OPCODE_StringShort(index).c_str());
+            fprintf(outputFile, "%u %p %u %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str());
         else
-            fprintf(outputFile, "%u %p %u 0x%x 0 ", ex, ip, instrSize, index);
+            fprintf(outputFile, "%u %p %u %u ", ex, ip, instrSize, index);
         
-        //Write execution bit and advance 1 byte in buffer
-        //*((bool *)current_spot_in_buildBuff) = ex;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
-        
-        //Write instruction address and advance 8 bytes in buffer
-        //*((void **)current_spot_in_buildBuff) = ip;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(void *);
-        
-        //Write Opcode size and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = instrSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write Opcode and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = index;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //No registers written, so write a 0 and advance 1 byte
-        //*current_spot_in_buildBuff = 0;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
     }
 }
 
 /**
-Function used to print the execution bit, Instruction Address, Opcode Size, and Opcode.
-1 register written after that.
-@param ex            The boolean that signifies whether or not the instruction was actually executed
-@param *ip            The pointer the instruction's physical address space
-@param index        The opcode number
-@param instrSize    The opcode size (in bytes)
+ Function to print rather an instruction was a repeat.
+ If it is a repeat then print # of repeats.
+ @param rep                 The boolean that signifies if the instrcution repeats.
+ @param repeats         Value in the repeat register.
+ */
+VOID RepPrint(BOOL rep, ADDRINT repeats){
+    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
+    {
+        if(rep)
+            fprintf(outputFile, "%u %lu", rep, repeats);
+        else
+            fprintf(outputFile, "%u ", rep);
+    }
+}
+
+/**
+ Function that prints a single number.
+ @param val         Value to be printed.
+ @param newLine Check to print a new line char.
+*/
+VOID ValPrint(UINT32 val, BOOL newLine){
+    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
+    {
+        if(newLine && val == 0){
+            fprintf(outputFile, "%u \n", val);
+        } else {
+            fprintf(outputFile, "%u ", val);
+        }
+    }
+}
+
+
+/* ===================================================================== */
+// MARK: Registers
+/* ===================================================================== */
+
+/**
+Function used to print a register that is read by the instruction.
 @param reg1num        The number of the register that was read by the instruction
 */
-VOID Reg1Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num)
+VOID RegPrint(UINT32 reg1num, UINT32 size, BOOL isLast)
 {
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        if(opcodePrint){
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u %s 1 %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str());
-			} else {
-            	fprintf(outputFile, "%u %p %u %s 1 %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num);
-			}
-		}
-        else {
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u 0x%x 1 %s ", ex, ip, instrSize, index, regRString[reg1num].c_str());
-			} else {
-        		fprintf(outputFile, "%u %p %u 0x%x 1 %u ", ex, ip, instrSize, index, reg1num);
-			}
-		}
-        //Write execution bit and advance 1 byte in buffer
-        //*((bool *)current_spot_in_buildBuff) = ex;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
-        
-        //Write instruction address and advance 8 bytes in buffer
-        //*((void **)current_spot_in_buildBuff) = ip;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(void *);
-        
-        //Write Opcode size and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = instrSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //Write Opcode and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = index;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //1 register written, so write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-        
-        //Write the register value and advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used to print the execution bit, Instruction Address, Opcode Size, and Opcode.
-2 registers written after that.
-@param ex            The boolean that signifies whether or not the instruction was actually executed
-@param *ip            The pointer the instruction's physical address space
-@param index        The opcode number
-@param instrSize    The opcode size (in bytes)
-@param reg1num        The number of the first register that was read by the instruction
-@param reg2num        The number of the second register that was read by the instruction
-*/
-VOID Reg2Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num, UINT32 reg2num)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        if(opcodePrint){
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u %s 2 %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str());	
-			} else {
-          		fprintf(outputFile, "%u %p %u %s 2 %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num);
-			}
-		} else {
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u 0x%x 2 %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str());
-			} else {
-            	fprintf(outputFile, "%u %p %u 0x%x 2 %u %u ", ex, ip, instrSize, index, reg1num, reg2num);
-			}
-		}
-        //Write execution bit and advance 1 byte in buffer
-        //*((bool *)current_spot_in_buildBuff) = ex;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
-        
-        //Write instruction address and advance 8 bytes in buffer
-        //*((void **)current_spot_in_buildBuff) = ip;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(void *);
-        
-        //Write Opcode size and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = instrSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //Write Opcode and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = index;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //2 registers written, so write a 2 and advance 1 byte
-        //*current_spot_in_buildBuff = 2;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-        
-        //Write the register values, advancing 4 bytes each value
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //*((UINT32 *)current_spot_in_buildBuff) = reg2num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used to print the execution bit, Instruction Address, Opcode Size, and Opcode.
-3 registers written after that.
-@param ex            The boolean that signifies whether or not the instruction was actually executed
-@param *ip            The pointer the instruction's physical address space
-@param index        The opcode number
-@param instrSize    The opcode size (in bytes)
-@param reg1num        The number of the first register that was read by the instruction
-@param reg2num        The number of the second register that was read by the instruction
-@param reg3num        The number of the third register that was read by the instruction
-*/
-VOID Reg3Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num, UINT32 reg2num, UINT32 reg3num)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        if(opcodePrint){
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u %s 3 %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str());
-			} else {
-            	fprintf(outputFile, "%u %p %u %s 3 %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num);
-			}
-		} else {
-			if(regPrint) {
-				fprintf(outputFile, "%u %p %u 0x%x 3 %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str());
-			} else {
-           		fprintf(outputFile, "%u %p %u 0x%x 3 %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num);
-			}
-		}
-        //Write execution bit and advance 1 byte in buffer
-        //*((bool *)current_spot_in_buildBuff) = ex;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
-        
-        //Write instruction address and advance 8 bytes in buffer
-        //*((void **)current_spot_in_buildBuff) = ip;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(void *);
-
-        //Write Opcode size and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = instrSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //Write Opcode and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = index;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //3 registers written, so write a 3 and advance 1 byte
-        //*current_spot_in_buildBuff = 3;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the register values, advancing 4 bytes each value
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg2num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg3num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-/**
-Function used to print the execution bit, Instruction Address, Opcode Size, and Opcode.
-4 registers written after that.
-@param ex            The boolean that signifies whether or not the instruction was actually executed
-@param *ip            The pointer the instruction's physical address space
-@param index        The opcode number
-@param instrSize    The opcode size (in bytes)
-@param reg1num        The number of the first register that was read by the instruction
-@param reg2num        The number of the second register that was read by the instruction
-@param reg3num        The number of the third register that was read by the instruction
-@param reg4num        The number of the fourth register that was read by the instruction
-*/
-VOID Reg4Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num, UINT32 reg2num, UINT32 reg3num, UINT32 reg4num)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {   
-        if(opcodePrint)
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u %s 4 %s %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str());
-			} else {
-            	fprintf(outputFile, "%u %p %u %s 4 %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num);
-			}
-        else{
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u 0x%x 4 %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str());
-			} else {
-            	fprintf(outputFile, "%u %p %u 0x%x 4 %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num);
-			}
-		}
-        //Write execution bit and advance 1 byte in buffer
-        //*((bool *)current_spot_in_buildBuff) = ex;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
-        
-        //Write instruction address and advance 8 bytes in buffer
-        //*((void **)current_spot_in_buildBuff) = ip;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(void *);
-
-        //Write Opcode size and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = instrSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write Opcode and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = index;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //4 registers written, so write a 4 and advance 1 byte
-        //*current_spot_in_buildBuff = 4;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the register values, advancing 4 bytes each value
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //*((UINT32 *)current_spot_in_buildBuff) = reg2num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //*((UINT32 *)current_spot_in_buildBuff) = reg3num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg4num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used to print the execution bit, Instruction Address, Opcode Size, and Opcode.
-5 registers written after that.
-@param ex            The boolean that signifies whether or not the instruction was actually executed
-@param *ip            The pointer the instruction's physical address space
-@param index        The opcode number
-@param instrSize    The opcode size (in bytes)
-@param reg1num        The number of the first register that was read by the instruction
-@param reg2num        The number of the second register that was read by the instruction
-@param reg3num        The number of the third register that was read by the instruction
-@param reg4num        The number of the fourth register that was read by the instruction
-@param reg5num        The number of the fifth register that was read by the instruction
-*/
-VOID Reg5Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num, UINT32 reg2num, UINT32 reg3num, UINT32 reg4num, UINT32 reg5num)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        if(opcodePrint){
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u %s 5 %s %s %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str());
-			} else {
-	            fprintf(outputFile, "%u %p %u %s 5 %u %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num, reg5num);
-			}
+        if(regPrint){
+            fprintf(outputFile, "%s %u ", regRString[reg1num].c_str(), size);
         } else {
-			if(regPrint){
-				fprintf(outputFile, "%u %p %u 0x%x 5 %s %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str());
-			} else {
-            	fprintf(outputFile, "%u %p %u 0x%x 5 %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num);
-			}
-		}
-        //Write execution bit and advance 1 byte in buffer
-        //*((bool *)current_spot_in_buildBuff) = ex;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
+            fprintf(outputFile, "%u %u ", reg1num, size);
+        }
         
-        //Write instruction address and advance 8 bytes in buffer
-        //*((void **)current_spot_in_buildBuff) = ip;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(void *);
-
-        //Write Opcode size and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = instrSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-        
-        //Write Opcode and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = index;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //5 registers written, so write a 5 and advance 1 byte
-        //*current_spot_in_buildBuff = 5;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the register values, advancing 4 bytes each value
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg2num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg3num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg4num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg5num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
+        if(isLast){
+            fprintf(outputFile, "\n");
+        }
     }
 }
 
+/* ===================================================================== */
+// MARK: Memory
+/* ===================================================================== */
+
 /**
-Function used to print the execution bit, Instruction Address, Opcode Size, and Opcode.
-6 registers written after that.
-@param ex            The boolean that signifies whether or not the instruction was actually executed
-@param *ip            The pointer the instruction's physical address space
-@param index        The opcode number
-@param instrSize    The opcode size (in bytes)
-@param reg1num        The number of the first register that was read by the instruction
-@param reg2num        The number of the second register that was read by the instruction
-@param reg3num        The number of the third register that was read by the instruction
-@param reg4num        The number of the fourth register that was read by the instruction
-@param reg5num        The number of the fifth register that was read by the instruction
-@param reg6num        The number of the sixth register that was read by the instruction
-*/
-VOID Reg6Print(BOOL ex, VOID *ip, UINT32 index, UINT32 instrSize, UINT32 reg1num, UINT32 reg2num, UINT32 reg3num, UINT32 reg4num, UINT32 reg5num, UINT32 reg6num)
-{
+ Function to print a memory operand.
+ @param address     The address of the access.
+ @param size            The size of the resulting data.
+ */
+VOID MemPrint(ADDRINT address, UINT32 size){
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
-        if(opcodePrint){
-		if(regPrint){
-			fprintf(outputFile, "%u %p %u %s 6 %s %s %s %s %s %s ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str(), regRString[reg6num].c_str());
-			} else {
-            	fprintf(outputFile, "%u %p %u %s 6 %u %u %u %u %u %u ", ex, ip, instrSize, OPCODE_StringShort(index).c_str(), reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
-			}
-        }else{
-			if(regPrint){
-			fprintf(outputFile, "%u %p %u 0x%x 6 %s %s %s %s %s %s ", ex, ip, instrSize, index, regRString[reg1num].c_str(), regRString[reg2num].c_str(), regRString[reg3num].c_str(), regRString[reg4num].c_str(), regRString[reg5num].c_str(), regRString[reg6num].c_str());
-			} else {
-            fprintf(outputFile, "%u %p %u 0x%x 6 %u %u %u %u %u %u ", ex, ip, instrSize, index, reg1num, reg2num, reg3num, reg4num, reg5num, reg6num);
-			}
-		}
-        //Write execution bit and advance 1 byte in buffer
-        //*((bool *)current_spot_in_buildBuff) = ex;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(bool);
-        
-        //Write instruction address and advance 8 bytes in buffer
-        //*((void **)current_spot_in_buildBuff) = ip;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(void *);
-
-        //Write Opcode size and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = instrSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write Opcode and advance 4 bytes in buffer
-        //*((UINT32 *)current_spot_in_buildBuff) = index;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //6 registers written, so write a 6 and advance 1 byte
-        //*current_spot_in_buildBuff = 6;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the register values, advancing 4 bytes each value
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg2num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg3num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg4num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg5num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //*((UINT32 *)current_spot_in_buildBuff) = reg6num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
+        fprintf(outputFile, "%lu %u ", address, size);
     }
 }
 
-/**
-Function called when there are no memory operands (read or write)
-*/
-VOID Mem0Print()
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "0 0 ");
-        //Write a zero to designate 0 memory reads and advance 1 byte
-        //*current_spot_in_buildBuff = 0;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write a zero to designate 0 memory writes and advance 1 byte
-        //*current_spot_in_buildBuff = 0;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-    }
-}
-
-/**
-Function called when 1 memory address is read, none written
-@param memRAddr    The address of the memory read
-@param memRSize    The size of memory that was read in (in bytes)
-*/
-VOID Mem1RPrint(ADDRINT memRAddr, UINT32 memRSize)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "1 0x%lx %u 0 ", memRAddr, memRSize);
-        //1 memory location read, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the memory read and advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = memRAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the memory read and advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = memRSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //No memory written, write a 0 and advance 1 byte
-        //*current_spot_in_buildBuff = 0;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-    }
-}
-
-/**
-The function called when 0 memory reads, 1 memory write
-@param memWAddr The address of the memory being written
-@param memWSize The size of the memory write (in bytes)
-*/
-VOID Mem1WPrint(ADDRINT memWAddr, UINT32 memWSize)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "0 1 0x%lx %u ", memWAddr, memWSize);
-        //No memory read, write a 0 and advance 1 byte
-        //*current_spot_in_buildBuff = 0;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //1 memory write, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the memory write and advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = memWAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the memory write and advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = memWSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used when there are 2 memory reads, no writes
-@param mem1RAddr    The address of the first memory read
-@param mem1RSize    The size of the first memory read
-@param mem2RAddr    The address of the second memory read
-@param mem2RSize    The size of the second memory read
-*/
-VOID Mem2RRPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2RAddr, UINT32 mem2RSize)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "2 0x%lx %u 0x%lx %u 0 ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize);
-        //2 memory reads, write a 2 and advance 1 byte
-        //*current_spot_in_buildBuff = 2;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the first memory read and advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem1RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the first memory read and advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem1RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the address of the second memory read and advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem2RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the second memory read and advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem2RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //No memory writes, write a 0 and advance 1 byte
-        //*current_spot_in_buildBuff = 0;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-    }
-}
-
-/**
-Function used when the memory operand is read, the second is written
-@param mem1RAddr    The address of the first memory operand (read)
-@param mem1RSize    The size of the first memory operand (read)
-@param mem2WAddr    The address of the second memory operand (written)
-@param mem2WSize    The size of the second memory operand (written)
-*/
-VOID Mem2RWPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2WAddr, UINT32 mem2WSize)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "1 0x%lx %u 1 0x%lx %u ", mem1RAddr, mem1RSize, mem2WAddr, mem2WSize);
-        //1 memory read, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the first memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem1RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the first memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem1RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //1 memory write, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the second memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem2WAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the second memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem2WSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used when the first memory operand is written, second is read
-@param mem1WAddr    The address of the first memory operand (written)
-@param mem1WSize    The size of the first memory operand (written)
-@param mem2RAddr    The address of the second memory operand (read)
-@param mem2RSize    The size of the second memory operand (read)
-*/
-VOID Mem2WRPrint(ADDRINT mem1WAddr, UINT32 mem1WSize, ADDRINT mem2RAddr, UINT32 mem2RSize)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "1 0x%lx %u 1 0x%lx %u ", mem2RAddr, mem2RSize, mem1WAddr, mem1WSize);
-        //1 memory read, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address  of the second memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem2RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the second memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem2RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //1 memory write, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the first memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem1WAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the first memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem1WSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used when memory operands 1 and 2 are read, 3 is written
-@param mem1RAddr    The address of the first memory operand (read)
-@param mem1RSize    The size of the first memory operand (read)
-@param mem2RAddr    The address of the second memory operand (read)
-@param mem2RSize    The size of the second memory operand (read)
-@param mem3WAddr    The address of the third memory operand (written)
-@param mem3WSize    The size of the third memory operand (written)
-*/
-VOID Mem3RRWPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2RAddr, UINT32 mem2RSize, ADDRINT mem3WAddr, UINT32 mem3WSize)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "2 0x%lx %u 0x%lx %u 1 0x%lx %u ", mem1RAddr, mem1RSize, mem2RAddr, mem2RSize, mem3WAddr, mem3WSize);
-        //2 memory reads, write a 2 and advance 1 byte
-        //*current_spot_in_buildBuff = 2;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-        
-        //Write the address of the first memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem1RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write hte size of the first memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem1RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the address of the second memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem2RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the second memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem2RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //1 memory write, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the third memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem3WAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the third memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem3WSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used when memory operands 1 and 3 are read, 2 is written
-@param mem1RAddr    The address of the first memory operand (read)
-@param mem1RSize    The size of the first memory operand (read)
-@param mem2WAddr    The address of the second memory operand (written)
-@param mem2WSize    The size of the second memory operand (written)
-@param mem3RAddr    The address of the third memory operand (read)
-@param mem3RSize    The size of the third memory operand (read)
-*/
-VOID Mem3RWRPrint(ADDRINT mem1RAddr, UINT32 mem1RSize, ADDRINT mem2WAddr, UINT32 mem2WSize, ADDRINT mem3RAddr, UINT32 mem3RSize)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "2 0x%lx %u 0x%lx %u 1 0x%lx %u ", mem1RAddr, mem1RSize, mem3RAddr, mem3RSize, mem2WAddr, mem2WSize);
-        //2 memory reads, write a 2 and advance 1 byte
-        //*current_spot_in_buildBuff = 2;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the first memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem1RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the first memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem1RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the address of the third memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem3RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the third memory operand, advance 8 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem3RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //1 memory write, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the second memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem2WAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the second memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem2WSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used when memory operands 2 and 3 are read, 1 is written
-@param mem1WAddr    The address of the first memory operand (written)
-@param mem1WSize    The size of the first memory operand (written)
-@param mem2RAddr    The address of the second memory operand (read)
-@param mem2RSize    The size of the second memory operand (read)
-@param mem3RAddr    The address of the third memory operand (read)
-@param mem3RSize    the size of the third memory operand (read)
-*/
-VOID Mem3WRRPrint(ADDRINT mem1WAddr, UINT32 mem1WSize, ADDRINT mem2RAddr, UINT32 mem2RSize, ADDRINT mem3RAddr, UINT32 mem3RSize)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "2 0x%lx %u 0x%lx %u 1 0x%lx %u ", mem2RAddr, mem2RSize, mem3RAddr, mem3RSize, mem3RAddr, mem3RSize);
-        //2 memory reads, write a 2 and advance 1 byte
-        //*current_spot_in_buildBuff = 2;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the second memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem2RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the second memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem2RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the address of the third memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem3RAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the third memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem3RSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //1 memory write, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the address of the first memory operand, advance 8 bytes
-        //*((ADDRINT *)current_spot_in_buildBuff) = mem1WAddr;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(ADDRINT);
-
-        //Write the size of the first memory operand, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = mem1WSize;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-    }
-}
-
-/**
-Function used when there are no registers written
-*/
-VOID Reg0W()
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-        fprintf(outputFile, "0\n");
-        //0 register writes, write a 0 and advance 1 byte
-        //*current_spot_in_buildBuff = 0;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Instruction is finished, copy the buffer
-        //CopyBuffer();
-    }
-}
-
-/**
-Function used when there is 1 register written
-@param reg1Num    The first register that is written
-*/
-VOID Reg1W (UINT32 reg1Num)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {	
-		if(regPrint){
-			fprintf(outputFile, "1 %s\n", regWString[reg1Num].c_str());
-		} else {
-        	fprintf(outputFile, "1 %u\n", reg1Num);
-		}
-        //1 register write, write a 1 and advance 1 byte
-        //*current_spot_in_buildBuff = 1;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the register number and advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Instruction is finished, copy the buffer
-        //CopyBuffer();
-    }
-}
-
-/**
-Function used when 2 registers are written
-@param reg1Num    The first register that is written
-@param reg2Num    The second register that is written
-*/
-VOID Reg2W(UINT32 reg1Num, UINT32 reg2Num)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-		if(regPrint){
-			fprintf(outputFile, "2 %s %s \n", regWString[reg1Num].c_str(), regWString[reg2Num].c_str());
-		} else {
-			fprintf(outputFile, "2 %u %u \n", reg1Num, reg2Num);
-		}
-        //2 register writes, write a 2 and advance 1 byte
-        //*current_spot_in_buildBuff = 2;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the number of the first register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the number of the second register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg2Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Instruction is finished, copy the buffer
-        //CopyBuffer();
-    }
-}
-
-/**
-Function used when there are 3 registers written
-@param reg1Num    The first register that is written
-@param reg2Num    The second register that is written
-@param reg3Num    The third register that is written
-*/
-VOID Reg3W(UINT32 reg1Num, UINT32 reg2Num, UINT32 reg3Num)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-		if(regPrint){
-			fprintf(outputFile, "3 %s %s %s \n", regWString[reg1Num].c_str(), regWString[reg2Num].c_str(), regWString[reg3Num].c_str());
-		} else {
-        	fprintf(outputFile, "3 %u %u %u \n", reg1Num, reg2Num, reg3Num);
-		}
-        //3 register writes, write a 3 and advance 1 byte
-        //*current_spot_in_buildBuff = 3;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the number of the first register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the number of the second register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg2Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the number of the third register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg3Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Instruction is finished, copy the buffer
-        //CopyBuffer();
-    }
-}
-
-/**
-Function used when there are 4 registers written
-@param reg1Num    The first register that is written
-@param reg2Num    The second register that is written
-@param reg3Num    The third register that is written
-@param reg4Num    The fourth register that is written
-*/
-VOID Reg4W(UINT32 reg1Num, UINT32 reg2Num, UINT32 reg3Num, UINT32 reg4Num)
-{
-    if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
-    {
-		if(regPrint){
-			fprintf(outputFile, "4 %s %s %s %s \n", regWString[reg1Num].c_str(), regWString[reg2Num].c_str(), regWString[reg3Num].c_str(), regWString[reg4Num].c_str());
-		} else {
-        	fprintf(outputFile, "4 %u %u %u %u \n", reg1Num, reg2Num, reg3Num, reg4Num);
-		}
-        //4 register writes, write a 4 and advance 1 byte
-        //*current_spot_in_buildBuff = 4;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(char);
-
-        //Write the number of the first register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg1Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the number of the second register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg2Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the number of the third register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg3Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Write the number of the fourth register, advance 4 bytes
-        //*((UINT32 *)current_spot_in_buildBuff) = reg4Num;
-        //current_spot_in_buildBuff = current_spot_in_buildBuff + sizeof(UINT32);
-
-        //Instruction is finished, copy the buffer
-        //CopyBuffer();
-    }
-}
+/* ===================================================================== */
+// MARK: - Instrumentation Function
+/* ===================================================================== */
 
 /**
 The Instrumentation Function used by the program
@@ -1099,216 +195,137 @@ The Instrumentation Function used by the program
 */
 VOID Test(INS ins, VOID *v)
 {
-    int maxR;    //The variable to hold the number of registers that are read in the instruction
-    int maxW;    //The variable to hold the number of registers that are written in the instruction
+    int maxR;      //The variable to hold the number of registers that are read in the instruction
+    int maxW;      //The variable to hold the number of registers that are written in the instruction
     int maxMem;    //The variable to hold the number of memory operands
 
-	if(disassemblePrint){
-		fprintf(instructionFile, "0x%lx ", INS_Address(ins));
-		fprintf(instructionFile, "%s\n", INS_Disassemble(ins).c_str());
-	}
+    //Dump the disassembled instructions if needed.
+    if(disassemblePrint){
+        fprintf(instructionFile, "0x%lx ", INS_Address(ins));
+        fprintf(instructionFile, "%s\n", INS_Disassemble(ins).c_str());
+    }
 
     //Make the call to increment the instruction counter
     INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)IncrementCounter, IARG_END);
 
+    //Make the call to print opcode and info.
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)InfoPrint, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_END);
+    
+    //Make the call to the repeat function.
+    if(INS_HasRealRep(ins)){
+        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RepPrint, IARG_BOOL, TRUE, IARG_REG_VALUE, INS_RepCountRegister(ins), IARG_END);
+    } else {
+        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RepPrint, IARG_BOOL, FALSE, IARG_ADDRINT, 0, IARG_END);
+    }
+    
     //Determine the number of register that are read
     maxR = INS_MaxNumRRegs(ins);
-
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ValPrint, IARG_UINT32, maxR, IARG_BOOL, FALSE, IARG_END);
+    
     //Run a check to make sure all registers were accounted for
-    if(maxR > 6)
-    {
+    if(maxR > 6) {
         cout << "ERROR: MORE THAN 6 REGISTERS WERE READ";
-    }
-    else if(maxR == 0)
-    {
-        //0 registers read
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg0Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_END);
-    }
-    else if(maxR == 1)
-    {
-        //1 register read
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg1Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_END);
-		//Get the string string instead of numbers
-		if(regPrint){
-			//Store just the string.
-			regRString[(UINT32)INS_RegR(ins, 0)] = REG_StringShort(INS_RegR(ins, 0));
-		}
-    }
-    else if(maxR == 2)
-    {
-        //2 registers read
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg2Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_END);
-
-    }
-    else if(maxR == 3)
-    {
-        //3 registers read
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg3Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_UINT32, INS_RegR(ins, 2), IARG_END);
-
-    }
-    else if(maxR == 4)
-    {
-        //4 registers read
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg4Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_UINT32, INS_RegR(ins, 2), IARG_UINT32, INS_RegR(ins, 3), IARG_END);
-	
-    }
-    else if(maxR == 5)
-    {
-        //5 registers read
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg5Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_UINT32, INS_RegR(ins, 2), IARG_UINT32, INS_RegR(ins, 3), IARG_UINT32, INS_RegR(ins, 4), IARG_END);
-
-    }
-    else
-    {
-        //6 registers read
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg6Print, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_UINT32, INS_RegR(ins, 0), IARG_UINT32, INS_RegR(ins, 1), IARG_UINT32, INS_RegR(ins, 2), IARG_UINT32, INS_RegR(ins, 3), IARG_UINT32, INS_RegR(ins, 4), IARG_UINT32, INS_RegR(ins,5), IARG_END);
-		
+    } else {
+        for(int i = 0; i < maxR; i++){
+            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RegPrint, IARG_UINT32, INS_RegR(ins, i), IARG_UINT32, REG_Size(INS_RegR(ins, i)), IARG_BOOL, FALSE, IARG_END);
+        }
     }
 
     //Determine the number of memory operands
     maxMem = INS_MemoryOperandCount(ins);
 
-    if(maxMem == 0)
-    {
-        //0 memory reads, 0 memory writes
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem0Print, IARG_END);
-    }
-
-    if(maxMem == 1)
-    {
-        //1 memory operand
-        if(INS_MemoryOperandIsRead(ins, 0))
-        {
-            //1 memory read, 0 memory write
-            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem1RPrint, IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 0), IARG_END);
-        }
-        else
-        {
-            //0 memory read, 1 memory write
-            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem1WPrint, IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 0), IARG_END);
+    //Variables to store the number of each type of memory.
+    int readCount = 0;
+    int writeCount = 0;
+    int reads[2];
+    int writes = 0;
+    
+    //Categorize Mem Operations
+    for(int i = 0; i < maxMem; i++){
+        if(INS_MemoryOperandIsRead(ins, i)){
+            reads[readCount] = i;
+            readCount++;
+        } else {
+            writes = i;
+            writeCount++;
         }
     }
-
-    if(maxMem == 2)
-    {
-        //2 memory operands
-        if(INS_MemoryOperandIsRead(ins, 0) && INS_MemoryOperandIsRead(ins, 1))
-        {
-            //Memory operands 1 and 2 read
-            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem2RRPrint, IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 0), IARG_MEMORYREAD2_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 1), IARG_END);
-        }
-
-        else if(INS_MemoryOperandIsRead(ins, 0) && INS_MemoryOperandIsWritten(ins, 1))
-        {
-            //Memory operand 1 read, 2 written
-            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem2RWPrint, IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 0), IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 1), IARG_END);
-        }
-
-        else
-        {
-            //Memory operand 2 read, 1 written
-            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem2WRPrint, IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 0), IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 1), IARG_END);
+    
+    //Print Num Reads
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ValPrint, IARG_UINT32, readCount, IARG_BOOL, FALSE, IARG_END);
+    
+    //Print Reads
+    for(int i = 0; i < readCount; i++){
+        if(i == 0){
+            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)MemPrint, IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryOperandSize(ins, reads[0]), IARG_END);
+        } else if(i == 1){
+            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)MemPrint, IARG_MEMORYREAD2_EA, IARG_UINT32, INS_MemoryOperandSize(ins, reads[1]), IARG_END);
         }
     }
-
-    if(maxMem == 3)
-    {
-        //3 memory operands
-        if(INS_MemoryOperandIsRead(ins, 0) && INS_MemoryOperandIsRead(ins, 1) && INS_MemoryOperandIsWritten(ins, 2))
-        {
-            //Memory operands 1 & 2 read, 3 written
-            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem3RRWPrint, IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 0), IARG_MEMORYREAD2_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 1), IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 2), IARG_END);
-        }
-        
-        else if(INS_MemoryOperandIsRead(ins, 0) && INS_MemoryOperandIsWritten(ins, 1) && INS_MemoryOperandIsRead(ins, 2))
-        {
-            //Memory operands 1 & 3 read, 2 written
-            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem3RWRPrint, IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 0), IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 1), IARG_MEMORYREAD2_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 2), IARG_END);
-        }
-
-        else
-        {
-            //Memory operands 2 & 3 read, 1 written
-            INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Mem3WRRPrint, IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 0), IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 1), IARG_MEMORYREAD2_EA, IARG_UINT32, INS_MemoryOperandSize(ins, 2), IARG_END);
-        }
+    //Print Number of Writes
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ValPrint, IARG_UINT32, writeCount, IARG_BOOL, FALSE, IARG_END);
+    //Print Writes
+    if(writes == 1){
+        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)MemPrint, IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryOperandSize(ins, writes), IARG_END);
     }
-
+    
     //Determine the number of registers written
     maxW = INS_MaxNumWRegs(ins);
-
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ValPrint, IARG_UINT32, maxW, IARG_BOOL, TRUE, IARG_END);
+    
     //Run a check to make sure all registers are accounted for
     if(maxW > 4)
     {
         cout << "ERROR: MORE THAN FOUR REGISTERS WERE WRITTEN";
+    } else {
+        for(int i = 0; i < maxW; i++){
+            if(i == (maxW - 1)){
+                INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RegPrint, IARG_UINT32, INS_RegW(ins, i), IARG_UINT32, REG_Size(INS_RegW(ins, i)), IARG_BOOL, TRUE, IARG_END);
+            } else {
+                INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RegPrint, IARG_UINT32, INS_RegW(ins, i), IARG_UINT32, REG_Size(INS_RegW(ins, i)), IARG_BOOL, FALSE, IARG_END);
+            }
+        }
     }
-    else if(maxW == 0)
-    {
-        //0 register writes
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg0W, IARG_END);
-    }
-    else if(maxW == 1)
-    {
-        //1 register write
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg1W, IARG_UINT32, INS_RegW(ins, 0), IARG_END);
+    
 
+    if(regPrint){
+        //Iterate over the read registers.
+        for(int i = 0; i < maxR; i++){
+            regRString[(UINT32)INS_RegR(ins, i)] = REG_StringShort(INS_RegR(ins, i));
+            fprintf(regFile, "%i, %s\n", (UINT32)INS_RegR(ins, i), regRString[(UINT32)INS_RegR(ins, i)].c_str());
+        }
+        for(int i = 0; i < maxW; i++){
+            regWString[(UINT32)INS_RegW(ins, i)] = REG_StringShort(INS_RegW(ins, i));
+            fprintf(regFile, "%i, %s\n", (UINT32)INS_RegW(ins, i), regWString[(UINT32)INS_RegW(ins, i)].c_str());
+        }
+        
     }
-    else if(maxW == 2)
-    {
-        //2 register writes
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg2W, IARG_UINT32, INS_RegW(ins, 0), IARG_UINT32, INS_RegW(ins, 1), IARG_END);
-    }
-    else if(maxW == 3)
-    {
-        //3 register writes
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg3W, IARG_UINT32, INS_RegW(ins, 0), IARG_UINT32, INS_RegW(ins, 1), IARG_UINT32, INS_RegW(ins, 2), IARG_END);
-    }
-    else if(maxW == 4)
-    {
-        //4 register writes
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)Reg4W, IARG_UINT32, INS_RegW(ins, 0), IARG_UINT32, INS_RegW(ins, 1), IARG_UINT32, INS_RegW(ins, 2), IARG_UINT32, INS_RegW(ins, 3), IARG_END);
-    }
-
-	if(regPrint){
-		//Iterate over the read registers.
-		for(int i = 0; i < maxR; i++){
-			regRString[(UINT32)INS_RegR(ins, i)] = REG_StringShort(INS_RegR(ins, i));
-			fprintf(regFile, "%i, %s\n", (UINT32)INS_RegR(ins, i), regRString[(UINT32)INS_RegR(ins, i)].c_str());
-		}
-		for(int i = 0; i < maxW; i++){
-			regWString[(UINT32)INS_RegW(ins, i)] = REG_StringShort(INS_RegW(ins, i));
-			fprintf(regFile, "%i, %s\n", (UINT32)INS_RegW(ins, i), regWString[(UINT32)INS_RegW(ins, i)].c_str());
-		}
-		
-	}
-		
+        
 }
 
+/* ===================================================================== */
+// MARK: - Setup/Exit
+/* ===================================================================== */
+
 /*!
- * Function used to compress the last of the traces and close output files.
- * This function is called when the application exits.
- * @param[in]   code            Exit code of the application
- * @param[in]   v               Value specified by the tool
- */
+* Function used to compress the last of the traces and close output files.
+* This function is called when the application exits.
+* @param[in]   code            Exit code of the application
+* @param[in]   v               Value specified by the tool
+*/
 VOID Fini(INT32 code, VOID *v)
 {
-    //Compress the last of the traces and export them before closing the file
-    //CompressAndExport(true);
-
-    //Check to make sure everything closed OK
-    //assert(ret == Z_STREAM_END);
-
-    //Clean up the compression stream
-    //(void)deflateEnd(&strm);
-
     //Print out number of instructions
     fprintf(outputFile, "%lu", instrCounter);
     
     //Close the output file
     fclose(outputFile);
-
-    //Delete any memory that was allocated
-    //delete buildBuff;
-    //delete compressionBuff;
+    if(disassemblePrint){
+        fclose(instructionFile);
+    }
+    if(regPrint){
+        fclose(regFile);
+    }
 }
 
 /*!
@@ -1330,10 +347,9 @@ int main(int argc, char *argv[])
     //Account for any user specs
     numInstr = KnobInstrCount;
     skipPt = KnobSkipPoint;
-    compLevel = KnobCompressionLevel;
     opcodePrint = KnobOpcodePrint;
-	disassemblePrint = KnobDisassemble;
-	regPrint = KnobRegPrint;
+    disassemblePrint = KnobDisassemble;
+    regPrint = KnobRegPrint;
 
     // Register the function to be called to instrument traces
     INS_AddInstrumentFunction(Test, 0);
@@ -1341,87 +357,87 @@ int main(int argc, char *argv[])
     // Register the function to be called when the application exits
     PIN_AddFiniFunction(Fini, 0);
     
-	//========Ouput Disassembled Instructions==========
-	if (disassemblePrint){
-		instructionFile = fopen("instructions.out", "w");
-		fprintf(instructionFile, "===============================================\n");
-		//Print out the date and time of the trace generation
-	    	time_t rawtime;
-	    	struct tm * timeinfo;
+    //========Ouput Disassembled Instructions==========
+    if (disassemblePrint){
+        instructionFile = fopen("instructions.out", "w");
+        fprintf(instructionFile, "===============================================\n");
+        //Print out the date and time of the trace generation
+            time_t rawtime;
+            struct tm * timeinfo;
 
-	    	time (&rawtime);
-	   	timeinfo = localtime (&rawtime);
+            time (&rawtime);
+           timeinfo = localtime (&rawtime);
 
-	   	char header2[100];
-	   	strcpy(header2, "Instructions generated on: ");
-	    	strcat(header2, asctime(timeinfo));
-	    	fwrite(header2, 1, strlen(header2), instructionFile);
+           char header2[100];
+           strcpy(header2, "Instructions generated on: ");
+            strcat(header2, asctime(timeinfo));
+            fwrite(header2, 1, strlen(header2), instructionFile);
 
-		int i;
-	    	for (i = 0; i < argc; ++i)
-	    	{
-	      		if (!strcmp(argv[i], "--"))
-	       	 	{
-		  		break;
-	       	 	}
-	   	}		
+        int i;
+            for (i = 0; i < argc; ++i)
+            {
+                  if (!strcmp(argv[i], "--"))
+                    {
+                  break;
+                    }
+           }
 
-		++i;
-		char header4[100];
-		strcpy(header4,"Program name: ");
-		strcat(header4, argv[i]);
-		strcat(header4, "\n");
-		fwrite(header4,1,strlen(header4),instructionFile);
-		++i;
-		fprintf(instructionFile, "===============================================\n");
-	}
+        ++i;
+        char header4[100];
+        strcpy(header4,"Program name: ");
+        strcat(header4, argv[i]);
+        strcat(header4, "\n");
+        fwrite(header4,1,strlen(header4),instructionFile);
+        ++i;
+        fprintf(instructionFile, "===============================================\n");
+    }
 
-	//==============Ouput Register Strings====================
-	if (regPrint){
-		regFile = fopen("registers.out", "w");
-		fprintf(regFile, "===============================================\n");
-		//Print out the date and time of the trace generation
-    	time_t rawtime;
-    	struct tm * timeinfo;
+    //==============Ouput Register Strings====================
+    if (regPrint){
+        regFile = fopen("registers.out", "w");
+        fprintf(regFile, "===============================================\n");
+        //Print out the date and time of the trace generation
+        time_t rawtime;
+        struct tm * timeinfo;
 
-    	time (&rawtime);
-   		timeinfo = localtime (&rawtime);
+        time (&rawtime);
+           timeinfo = localtime (&rawtime);
 
-   		char header2[100];
-   		strcpy(header2, "Instructions generated on: ");
-    	strcat(header2, asctime(timeinfo));
-    	fwrite(header2, 1, strlen(header2), regFile);
+           char header2[100];
+           strcpy(header2, "Instructions generated on: ");
+        strcat(header2, asctime(timeinfo));
+        fwrite(header2, 1, strlen(header2), regFile);
 
-		int i;
-    	for (i = 0; i < argc; ++i)
-    	{
-      		if (!strcmp(argv[i], "--"))
-       	 	{
-          		break;
-       	 	}
-   		}		
+        int i;
+        for (i = 0; i < argc; ++i)
+        {
+              if (!strcmp(argv[i], "--"))
+                {
+                  break;
+                }
+           }
 
-		++i;
-		char header4[100];
-		strcpy(header4,"Program name: ");
-		strcat(header4, argv[i]);
-		strcat(header4, "\n");
-		fwrite(header4,1,strlen(header4),regFile);
-		++i;
-		fprintf(regFile, "===============================================\n");
-	}
+        ++i;
+        char header4[100];
+        strcpy(header4,"Program name: ");
+        strcat(header4, argv[i]);
+        strcat(header4, "\n");
+        fwrite(header4,1,strlen(header4),regFile);
+        ++i;
+        fprintf(regFile, "===============================================\n");
+    }
 
-    //================Output the header================
+    //================Output the Output header================
 
     //Create the output file
-    outputFile = fopen((KnobOutputFile.Value()).c_str(), "w");
+    outputFile = fopen("Trace.out", "w");
 
     char header1[] = "===============================================\n";
     fwrite(header1,1,strlen(header1),outputFile);
 
     if (!KnobOutputFile.Value().empty())
     {
-        cerr << "See file " << KnobOutputFile.Value() << " for analysis results" << endl;
+        cerr << "See file trace.out for analysis results" << endl;
     }
 
     //Print out the date and time of the trace generation
@@ -1492,35 +508,10 @@ int main(int argc, char *argv[])
 
     ss.str("");
 
-    //Print out the compression method and user-specified compression level
-    char header8[100];
-    strcpy(header8, "Compressed using zLib, level ");
-    ss << KnobCompressionLevel.Value();
-    strcat(header8, (ss.str()).c_str());
-    strcat(header8, "\n");
-    fwrite(header8,1,strlen(header8),outputFile);
-
     char header9[] = "===============================================\n";
     fwrite(header9,1,strlen(header9),outputFile);
 
-    //fflush(outputFile);
-    //SET_BINARY_MODE(outputFile);
-
-    //Initialize the buffers used for building and compression
-    //buildBuff = new char[MAXINSTRSIZE];
-    //compressionBuff = new char[(CHUNK + MAXINSTRSIZE)];
-    //current_spot_in_buildBuff = buildBuff;
-    //current_spot_in_compressionBuff = compressionBuff;
-
-    //Allocate the deflate state
-    //strm.zalloc = Z_NULL;
-    //strm.zfree = Z_NULL;
-    //strm.opaque = Z_NULL;
-    //ret = deflateInit(&strm, KnobCompressionLevel.Value());
-    //    if (ret != Z_OK)
-    //    return ret;
-
-    //Everything is ready, so start the program - never returns
+    
     PIN_StartProgram();
     
     return 0;
