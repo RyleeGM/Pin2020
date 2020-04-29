@@ -44,13 +44,13 @@ string regWString[200];
 /* ===================================================================== */
 // MARK: - Command line switches
 /* ===================================================================== */
-KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE,  "pintool",        //Allows for specific naming of the output file
+KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE,  "pintool",          //Allows for specific naming of the output file
     "o", "Trace.out", "specify file name for MyPinTool output");
 KNOB<UINT64> KnobSkipPoint(KNOB_MODE_WRITEONCE, "pintool",            //The knob for telling the program how many instructions to skip
     "skip", "0", "Specify the number of instructions to skip generating a trace for");
-KNOB<UINT64> KnobInstrCount(KNOB_MODE_WRITEONCE, "pintool",            //The knob for telling the program how many instructions to generate traces for
+KNOB<UINT64> KnobInstrCount(KNOB_MODE_WRITEONCE, "pintool",           //The knob for telling the program how many instructions to generate traces for
     "num", "100000", "Specify the number of instructions to generate a trace for");
-KNOB<int> KnobCompressionLevel(KNOB_MODE_WRITEONCE, "pintool",        //The knob for setting the level of compression - defaults to max
+KNOB<int> KnobCompressionLevel(KNOB_MODE_WRITEONCE, "pintool",       //The knob for setting the level of compression - defaults to max
     "cmp", "9", "Specify the level of compression (0-9) that is desired");
 KNOB<bool> KnobOpcodePrint(KNOB_MODE_WRITEONCE, "pintool", "opcode", "true",
     "If true prints opcode as a string instead of hex");
@@ -320,6 +320,7 @@ VOID Test(INS ins, VOID *v)
 VOID Fini(INT32 code, VOID *v)
 {
     //Print out number of instructions
+    fprintf(outputFile, "**End of Trace**");
     fprintf(outputFile, "%lu", instrCounter);
     
     //Close the output file
