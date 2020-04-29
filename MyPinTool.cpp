@@ -121,7 +121,7 @@ VOID RepPrint(BOOL rep, ADDRINT repeats){
     if (instrCounter > skipPt && instrCounter <= (skipPt + numInstr))
     {
         if(rep)
-            fprintf(outputFile, "%u %lu", rep, repeats);
+            fprintf(outputFile, "%u %lu ", rep, repeats);
         else
             fprintf(outputFile, "%u ", rep);
     }
@@ -138,6 +138,7 @@ VOID ValPrint(UINT32 val, BOOL newLine){
         if(newLine && val == 0){
             fprintf(outputFile, "%u \n", val);
         } else {
+            //fprintf(outputFile, "");
             fprintf(outputFile, "%u ", val);
         }
     }
@@ -211,12 +212,15 @@ VOID Test(INS ins, VOID *v)
     //Make the call to print opcode and info.
     INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)InfoPrint, IARG_EXECUTING, IARG_INST_PTR, IARG_UINT32, INS_Opcode(ins), IARG_UINT32, INS_Size(ins), IARG_END);
     
+    
     //Make the call to the repeat function.
     if(INS_HasRealRep(ins)){
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RepPrint, IARG_BOOL, TRUE, IARG_REG_VALUE, INS_RepCountRegister(ins), IARG_END);
     } else {
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RepPrint, IARG_BOOL, FALSE, IARG_ADDRINT, 0, IARG_END);
+        
     }
+    
     
     //Determine the number of register that are read
     maxR = INS_MaxNumRRegs(ins);
