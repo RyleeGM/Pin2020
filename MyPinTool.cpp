@@ -265,7 +265,7 @@ VOID Test(INS ins, VOID *v)
     //Print Number of Writes
     INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ValPrint, IARG_UINT32, writeCount, IARG_BOOL, FALSE, IARG_END);
     //Print Writes
-    if(writes == 1){
+    if(writeCount == 1){
         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)MemPrint, IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryOperandSize(ins, writes), IARG_END);
     }
     
