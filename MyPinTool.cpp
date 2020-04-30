@@ -320,7 +320,7 @@ VOID Test(INS ins, VOID *v)
 VOID Fini(INT32 code, VOID *v)
 {
     //Print out number of instructions
-    fprintf(outputFile, "**End of Trace**");
+    fprintf(outputFile, "**End of Trace**\n");
     fprintf(outputFile, "%lu", instrCounter);
     
     //Close the output file
