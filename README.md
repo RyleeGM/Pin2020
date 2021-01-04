@@ -2,6 +2,8 @@
 
 A tool using Intel's Pin framework to get the instruction trace of a program.
 
+**Note:** This tool does not use compression so files can become very large and formatting will start to breakdown
+
 ## Motivation
 This tool was created to provide execution traces for analysis and benchmarking of different architectural implementations.
 
